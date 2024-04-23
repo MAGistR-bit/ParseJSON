@@ -1,11 +1,16 @@
 package mag.calculating;
 
-import mag.pojo.TicketPOJO;
 import mag.model.Ticket;
+import mag.pojo.TicketPOJO;
 
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.*;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -16,7 +21,21 @@ import java.util.stream.Collectors;
 public class MinFlightTime {
 
     /**
+     * Форматирование даты
+     */
+    private static final DateTimeFormatter FORMAT = DateTimeFormatter.ofPattern("dd.MM.yy H:mm");
+    /**
+     * Часовая зона г. Владивосток
+     */
+    private static final String ZONE_ID_VLADIVOSTOK = "Asia/Vladivostok";
+    /**
+     * Часовая разница между Владивостоком и Тель-Авивом
+     */
+    private static final String ZONE_ID_GMT = "Etc/GMT-3";
+
+    /**
      * Отображает время полета для каждого авиаперевозчика
+     *
      * @param tickets билеты, полученные из JSON
      */
     public void showFlightTimeForCarriers(TicketPOJO tickets) {
@@ -44,6 +63,7 @@ public class MinFlightTime {
 
     /**
      * Рассчитывает время полета
+     *
      * @param ticket билет, для которого необходимо рассчитать время в пути
      * @return время полета
      */
@@ -54,22 +74,19 @@ public class MinFlightTime {
         String arrivalDate = ticket.getArrival_date();
         String arrivalTime = ticket.getArrival_time();
 
-        SimpleDateFormat formatter = new SimpleDateFormat("dd.MM.yyHH:mm");
-        Date departure = null;
-        Date arrive = null;
+        // Время отправления из Владивостока
+        ZonedDateTime startDataTime = toZonedDateTime(departureDate + " " + departureTime,
+                ZONE_ID_VLADIVOSTOK);
+        // Время прибытия в Тель-Авив
+        ZonedDateTime finishDataTime = toZonedDateTime(arrivalDate + " " + arrivalTime, ZONE_ID_GMT);
 
-        try {
-            departure = formatter.parse(departureDate + departureTime);
-            arrive = formatter.parse(arrivalDate + arrivalTime);
-        } catch (ParseException e) {
-            System.out.println("Ошибка синтаксического анализа");
-        }
-        return Objects.requireNonNull(arrive).getTime() - departure.getTime();
+        return ChronoUnit.MILLIS.between(startDataTime, finishDataTime);
     }
 
     /**
      * Определяет, какой билет позволит быстрее добраться
      * до места назначения
+     *
      * @param ticket1 первый билет
      * @param ticket2 второй билет
      * @return самый быстрый авиарейс
@@ -83,6 +100,7 @@ public class MinFlightTime {
 
     /**
      * Получает всех авиаперевозчиков
+     *
      * @param tickets билеты, полученные после чтения JSON
      * @return данные, которые включают в себя "ключ" и "значения".
      * Ключ - перевозчик. Значение - билет.
@@ -119,6 +137,18 @@ public class MinFlightTime {
                 .filter(ticket -> ticket.getOrigin_name().equals("Владивосток"))
                 .filter(ticket -> ticket.getDestination_name().equals("Тель-Авив"))
                 .collect(Collectors.toList());
+    }
+
+
+    /**
+     * Преобразует дату к определенному формату
+     *
+     * @param dateTime дата, которую нужно преобразовать
+     * @param zoneId   часовая зона, к которой будет приведена дата
+     * @return время
+     */
+    private ZonedDateTime toZonedDateTime(String dateTime, String zoneId) {
+        return LocalDateTime.parse(dateTime, FORMAT).atZone(ZoneId.of(zoneId));
     }
 
 }
